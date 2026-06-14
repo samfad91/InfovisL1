@@ -208,13 +208,15 @@
             border-radius: 40px;
         }
 
-        /* NEW STYLES FOR BUTTON & MODAL / DATA PANEL */
+        /* BUTTONS STYLES - both summary and viz */
         .action-bar {
             display: flex;
             justify-content: flex-end;
+            gap: 1rem;
             margin-bottom: 1.2rem;
+            flex-wrap: wrap;
         }
-        .btn-show-data {
+        .btn-show-data, .btn-viz-nav {
             background: linear-gradient(135deg, #2c6280, #1f4a6e);
             border: none;
             padding: 0.6rem 1.4rem;
@@ -229,13 +231,22 @@
             transition: all 0.2s ease;
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
             font-family: inherit;
+            text-decoration: none;
+        }
+        .btn-viz-nav {
+            background: linear-gradient(135deg, #3c7a5e, #2a5a44);
         }
         .btn-show-data:hover {
             background: linear-gradient(135deg, #1f5a7a, #143e58);
             transform: translateY(-1px);
             box-shadow: 0 6px 14px rgba(0,0,0,0.15);
         }
-        .btn-show-data:active {
+        .btn-viz-nav:hover {
+            background: linear-gradient(135deg, #2e6a4e, #1e4a38);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+        }
+        .btn-show-data:active, .btn-viz-nav:active {
             transform: translateY(1px);
         }
         
@@ -247,7 +258,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.6);
- backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -374,6 +385,9 @@
             .modal-body {
                 padding: 1rem;
             }
+            .action-bar {
+                justify-content: center;
+            }
         }
     </style>
 </head>
@@ -393,11 +407,15 @@
             </div>
         </div>
         
-        <!-- NEW BUTTON: Show Data Summary -->
+        <!-- BUTTONS: Show Data Summary + Go to 3D Visualization -->
         <div class="action-bar">
             <button class="btn-show-data" id="showDataBtn">
                 📈 Show Data Summary
                 <span style="font-size:1rem;">↗</span>
+            </button>
+            <button class="btn-viz-nav" id="goToVizBtn">
+                🎨 Go to 3D Visualization
+                <span style="font-size:1rem;">→</span>
             </button>
         </div>
 
@@ -610,13 +628,22 @@
             if(modal) modal.classList.remove('active');
         }
         
+        // Navigation to 3D visualization page (vis.html)
+        function goToVisualization() {
+            // Navigate to the 3D bar chart + heat matrix page
+            // Assuming the visualization file is saved as "vis.html" in the same directory
+            window.location.href = 'vis.html';
+        }
+        
         // attach event listeners
         const showBtn = document.getElementById('showDataBtn');
         const closeBtn = document.getElementById('closeModalBtn');
         const modalOverlay = document.getElementById('dataSummaryModal');
+        const vizBtn = document.getElementById('goToVizBtn');
         
         if (showBtn) showBtn.addEventListener('click', showDataSummary);
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        if (vizBtn) vizBtn.addEventListener('click', goToVisualization);
         if (modalOverlay) {
             modalOverlay.addEventListener('click', (e) => {
                 if (e.target === modalOverlay) closeModal();
@@ -631,7 +658,7 @@
         
         // initial console verification
         const rowsCheck = document.querySelectorAll('.data-table tbody tr');
-        console.log(`✅ Data table rendered: ${rowsCheck.length} rows. Show Data Summary button ready.`);
+        console.log(`✅ Data table rendered: ${rowsCheck.length} rows. Buttons ready: Summary & 3D Viz.`);
         
         // Extra: add subtle tooltips to cells (max/min)
         const cells = document.querySelectorAll('.data-table td.numeric-cell');
