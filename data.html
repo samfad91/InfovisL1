@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Data Matrix Visualizer | Enhanced Tabular View with Data Summary</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(145deg, #eef2f7 0%, #d9e0e8 100%);
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, 'Roboto', sans-serif;
+            padding: 2rem 1.5rem;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* card container with glassmorphism touch */
+        .data-card {
+            max-width: 1400px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 2rem;
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.05);
+            overflow-x: auto;
+            transition: all 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+        }
+
+        .inner-container {
+            padding: 1.6rem 1.8rem 2rem 1.8rem;
+        }
+
+        /* header area with title & legend */
+        .header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            margin-bottom: 1.8rem;
+            gap: 1rem;
+        }
+
+        .title-block h1 {
+            font-size: 1.85rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1e2f3f, #2c4c6c);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.2px;
+        }
+
+        .title-block p {
+            font-size: 0.85rem;
+            color: #4a627a;
+            margin-top: 6px;
+            font-weight: 500;
+        }
+
+        .stats-badge {
+            background: #eef3fc;
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #1f4a6e;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            backdrop-filter: blur(2px);
+            box-shadow: inset 0 1px 1px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .stats-badge span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .stats-badge i {
+            font-style: normal;
+            font-weight: 800;
+            background: white;
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        /* modern table design */
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.85rem;
+            min-width: 780px;
+            font-family: 'Segoe UI', 'Inter', monospace;
+        }
+
+        .data-table th {
+            text-align: center;
+            padding: 0.9rem 0.7rem;
+            font-weight: 700;
+            background: #f0f4fa;
+            color: #1e3a4d;
+            border-bottom: 2px solid #cbdae6;
+            font-size: 0.9rem;
+            letter-spacing: 0.3px;
+        }
+
+        .data-table td {
+            padding: 0.7rem 0.6rem;
+            text-align: center;
+            background-color: #ffffff;
+            border-bottom: 1px solid #e7edf5;
+            font-weight: 500;
+            color: #1e2f3c;
+            transition: background 0.12s ease;
+        }
+
+        /* zebra rows + hover effect for readability */
+        .data-table tbody tr:nth-child(even) td {
+            background-color: #fafdff;
+        }
+
+        .data-table tbody tr:hover td {
+            background-color: #eef3fc;
+            transition: 0.08s;
+        }
+
+        /* first column (row labels) styling */
+        .data-table td:first-child,
+        .data-table th:first-child {
+            position: sticky;
+            left: 0;
+            background: inherit;
+            z-index: 2;
+            font-weight: 700;
+            color: #1f4e6e;
+            border-right: 1px solid #dfe7ef;
+        }
+
+        .data-table th:first-child {
+            background: #e9f0f6;
+            z-index: 3;
+            font-weight: 800;
+        }
+
+        .data-table td:first-child {
+            background: #ffffff;
+            font-weight: 700;
+            text-align: left;
+            padding-left: 1rem;
+        }
+
+        .data-table tr:nth-child(even) td:first-child {
+            background: #fafdff;
+        }
+
+        /* numeric value emphasis */
+        .numeric-cell {
+            font-weight: 600;
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.2px;
+        }
+
+        /* highlight specific ranges or exceptional values (optional flair) */
+        .highlight-min {
+            background-color: #e6f4ea;
+            border-radius: 20px;
+            display: inline-block;
+            padding: 0.1rem 0.5rem;
+        }
+        .highlight-max {
+            background-color: #ffe6e3;
+            border-radius: 20px;
+            display: inline-block;
+            padding: 0.1rem 0.5rem;
+        }
+
+        /* custom tooltip / additional insight */
+        .insight-footer {
+            margin-top: 1.6rem;
+            padding-top: 1rem;
+            border-top: 1px solid #cbdae6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            font-size: 0.7rem;
+            color: #386581;
+        }
+
+        .stat-summary {
+            display: flex;
+            gap: 1rem;
+            background: #f5f9ff;
+            padding: 0.3rem 1rem;
+            border-radius: 40px;
+        }
+
+        /* NEW STYLES FOR BUTTON & MODAL / DATA PANEL */
+        .action-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 1.2rem;
+        }
+        .btn-show-data {
+            background: linear-gradient(135deg, #2c6280, #1f4a6e);
+            border: none;
+            padding: 0.6rem 1.4rem;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            font-family: inherit;
+        }
+        .btn-show-data:hover {
+            background: linear-gradient(135deg, #1f5a7a, #143e58);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+        }
+        .btn-show-data:active {
+            transform: translateY(1px);
+        }
+        
+        /* Modal overlay for data summary */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+ backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0.2s, opacity 0.2s;
+        }
+        .modal-overlay.active {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-container {
+            background: white;
+            border-radius: 2rem;
+            width: 90%;
+            max-width: 650px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
+            font-family: 'Segoe UI', 'Inter', system-ui;
+            animation: fadeSlideUp 0.2s ease-out;
+        }
+        @keyframes fadeSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2rem 1.8rem;
+            border-bottom: 1px solid #e2eaf1;
+            background: #fafdff;
+            border-radius: 2rem 2rem 0 0;
+        }
+        .modal-header h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #1f3a4b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.7rem;
+            cursor: pointer;
+            color: #7f8c8d;
+            transition: color 0.1s;
+            line-height: 1;
+        }
+        .close-modal:hover {
+            color: #e74c3c;
+        }
+        .modal-body {
+            padding: 1.5rem 1.8rem;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+        .stat-card {
+            background: #f8fafd;
+            padding: 0.8rem 1rem;
+            border-radius: 1.2rem;
+            border-left: 4px solid #2c6280;
+        }
+        .stat-card .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            color: #5a7c9a;
+        }
+        .stat-card .stat-value {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #1f4a6e;
+            margin-top: 5px;
+        }
+        .stat-card .stat-detail {
+            font-size: 0.7rem;
+            color: #4f6f8f;
+            margin-top: 4px;
+        }
+        .per-column-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+            margin-top: 1rem;
+        }
+        .per-column-table th, .per-column-table td {
+            border: 1px solid #dee4ec;
+            padding: 6px 8px;
+            text-align: center;
+        }
+        .per-column-table th {
+            background: #eef2f7;
+            font-weight: 700;
+            color: #1f3a4b;
+        }
+        .modal-footer-note {
+            margin-top: 1.2rem;
+            font-size: 0.7rem;
+            color: #6c8aac;
+            text-align: center;
+            border-top: 1px dashed #cbdae6;
+            padding-top: 1rem;
+        }
+        @media (max-width: 560px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            .modal-body {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="data-card">
+    <div class="inner-container">
+        <div class="header-flex">
+            <div class="title-block">
+                <h1>📋 Multivariate Data Matrix</h1>
+                <p>Enhanced numeric grid · d1 → d8 dimensions · 21 observation rows</p>
+            </div>
+            <div class="stats-badge">
+                <span><i>📊</i> 8 columns</span>
+                <span><i>🔢</i> 21 entries per dim</span>
+                <span><i>🎯</i> range 6 → 23</span>
+                <span><i>✨</i> hover rows</span>
+            </div>
+        </div>
+        
+        <!-- NEW BUTTON: Show Data Summary -->
+        <div class="action-bar">
+            <button class="btn-show-data" id="showDataBtn">
+                📈 Show Data Summary
+                <span style="font-size:1rem;">↗</span>
+            </button>
+        </div>
+
+        <div style="overflow-x: auto; border-radius: 1rem;">
+            <table class="data-table" cellspacing="0">
+                <thead>
+                <tr>
+                    <th># Row / ID</th>
+                    <th>d1</th><th>d2</th><th>d3</th><th>d4</th><th>d5</th><th>d6</th><th>d7</th><th>d8</th>
+                </tr>
+                </thead>
+                <tbody>
+                <!-- Data is exactly as provided: 21 rows -->
+                <tr><td>📌 1</td><td class="numeric-cell">12</td><td class="numeric-cell">6</td><td class="numeric-cell">14</td><td class="numeric-cell">12</td><td class="numeric-cell">6</td><td class="numeric-cell">9</td><td class="numeric-cell">12</td><td class="numeric-cell">8</td></tr>
+                <tr><td>📌 2</td><td class="numeric-cell">12</td><td class="numeric-cell">7</td><td class="numeric-cell">15</td><td class="numeric-cell">12</td><td class="numeric-cell">7</td><td class="numeric-cell">12</td><td class="numeric-cell">6</td><td class="numeric-cell">14</td></tr>
+                <tr><td>📌 3</td><td class="numeric-cell">10</td><td class="numeric-cell">12</td><td class="numeric-cell">8</td><td class="numeric-cell">10</td><td class="numeric-cell">7</td><td class="numeric-cell">12</td><td class="numeric-cell">7</td><td class="numeric-cell">15</td></tr>
+                <tr><td>📌 4</td><td class="numeric-cell">13</td><td class="numeric-cell">12</td><td class="numeric-cell">15</td><td class="numeric-cell">22</td><td class="numeric-cell">23</td><td class="numeric-cell">10</td><td class="numeric-cell">12</td><td class="numeric-cell">8</td></tr>
+                <tr><td>📌 5</td><td class="numeric-cell">14</td><td class="numeric-cell">7</td><td class="numeric-cell">21</td><td class="numeric-cell">22</td><td class="numeric-cell">21</td><td class="numeric-cell">22</td><td class="numeric-cell">12</td><td class="numeric-cell">15</td></tr>
+                <tr><td>📌 6</td><td class="numeric-cell">12</td><td class="numeric-cell">20</td><td class="numeric-cell">20</td><td class="numeric-cell">22</td><td class="numeric-cell">20</td><td class="numeric-cell">22</td><td class="numeric-cell">14</td><td class="numeric-cell">7</td></tr>
+                <tr><td>📌 7</td><td class="numeric-cell">9</td><td class="numeric-cell">12</td><td class="numeric-cell">21</td><td class="numeric-cell">7</td><td class="numeric-cell">20</td><td class="numeric-cell">21</td><td class="numeric-cell">10</td><td class="numeric-cell">12</td></tr>
+                <tr><td>📌 8</td><td class="numeric-cell">12</td><td class="numeric-cell">6</td><td class="numeric-cell">14</td><td class="numeric-cell">12</td><td class="numeric-cell">22</td><td class="numeric-cell">22</td><td class="numeric-cell">13</td><td class="numeric-cell">12</td></tr>
+                <tr><td>📌 9</td><td class="numeric-cell">12</td><td class="numeric-cell">7</td><td class="numeric-cell">15</td><td class="numeric-cell">12</td><td class="numeric-cell">21</td><td class="numeric-cell">23</td><td class="numeric-cell">12</td><td class="numeric-cell">14</td></tr>
+                <tr><td>📌 10</td><td class="numeric-cell">10</td><td class="numeric-cell">12</td><td class="numeric-cell">8</td><td class="numeric-cell">20</td><td class="numeric-cell">22</td><td class="numeric-cell">12</td><td class="numeric-cell">12</td><td class="numeric-cell">8</td></tr>
+                <tr><td>📌 11</td><td class="numeric-cell">13</td><td class="numeric-cell">12</td><td class="numeric-cell">15</td><td class="numeric-cell">21</td><td class="numeric-cell">21</td><td class="numeric-cell">12</td><td class="numeric-cell">9</td><td class="numeric-cell">9</td></tr>
+                <tr><td>📌 12</td><td class="numeric-cell">14</td><td class="numeric-cell">14</td><td class="numeric-cell">7</td><td class="numeric-cell">20</td><td class="numeric-cell">20</td><td class="numeric-cell">7</td><td class="numeric-cell">15</td><td class="numeric-cell">12</td></tr>
+                <tr><td>📌 13</td><td class="numeric-cell">15</td><td class="numeric-cell">8</td><td class="numeric-cell">12</td><td class="numeric-cell">15</td><td class="numeric-cell">8</td><td class="numeric-cell">12</td><td class="numeric-cell">8</td><td class="numeric-cell">12</td></tr>
+                <tr><td>📌 14</td><td class="numeric-cell">9</td><td class="numeric-cell">9</td><td class="numeric-cell">12</td><td class="numeric-cell">21</td><td class="numeric-cell">21</td><td class="numeric-cell">12</td><td class="numeric-cell">8</td><td class="numeric-cell">12</td></tr>
+                <tr><td>📌 15</td><td class="numeric-cell">14</td><td class="numeric-cell">12</td><td class="numeric-cell">7</td><td class="numeric-cell">22</td><td class="numeric-cell">22</td><td class="numeric-cell">12</td><td class="numeric-cell">12</td><td class="numeric-cell">12</td></tr>
+                <tr><td>📌 16</td><td class="numeric-cell">15</td><td class="numeric-cell">8</td><td class="numeric-cell">12</td><td class="numeric-cell">21</td><td class="numeric-cell">21</td><td class="numeric-cell">8</td><td class="numeric-cell">12</td><td class="numeric-cell">14</td></tr>
+                <tr><td>📌 17</td><td class="numeric-cell">7</td><td class="numeric-cell">14</td><td class="numeric-cell">12</td><td class="numeric-cell">15</td><td class="numeric-cell">7</td><td class="numeric-cell">7</td><td class="numeric-cell">13</td><td class="numeric-cell">12</td></tr>
+                <tr><td>📌 18</td><td class="numeric-cell">12</td><td class="numeric-cell">13</td><td class="numeric-cell">8</td><td class="numeric-cell">15</td><td class="numeric-cell">12</td><td class="numeric-cell">12</td><td class="numeric-cell">12</td><td class="numeric-cell">14</td></tr>
+                <tr><td>📌 19</td><td class="numeric-cell">12</td><td class="numeric-cell">7</td><td class="numeric-cell">9</td><td class="numeric-cell">9</td><td class="numeric-cell">12</td><td class="numeric-cell">12</td><td class="numeric-cell">9</td><td class="numeric-cell">8</td></tr>
+                <tr><td>📌 20</td><td class="numeric-cell">10</td><td class="numeric-cell">12</td><td class="numeric-cell">6</td><td class="numeric-cell">12</td><td class="numeric-cell">6</td><td class="numeric-cell">7</td><td class="numeric-cell">15</td><td class="numeric-cell">9</td></tr>
+                <tr><td>📌 21</td><td class="numeric-cell">7</td><td class="numeric-cell">13</td><td class="numeric-cell">7</td><td class="numeric-cell">12</td><td class="numeric-cell">7</td><td class="numeric-cell">12</td><td class="numeric-cell">8</td><td class="numeric-cell">12</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- extra insight & summary: dynamic stats based on the provided data -->
+        <div class="insight-footer">
+            <div class="stat-summary">
+                <span>📐 <strong>Column ranges</strong> :</span>
+                <span>d1: 7–15</span>
+                <span>d2: 6–20</span>
+                <span>d3: 6–21</span>
+                <span>d4: 7–22</span>
+                <span>d5: 6–23</span>
+                <span>d6: 7–23</span>
+                <span>d7: 6–15</span>
+                <span>d8: 7–15</span>
+            </div>
+            <div class="stat-summary">
+                <span>🔍 <strong>Global max</strong> = 23 (d5 row4 / d6 row9)</span>
+                <span>✨ <strong>Global min</strong> = 6 (multiple)</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL FOR DATA SUMMARY (show data analytics) -->
+<div id="dataSummaryModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h3>📊 Data Summary & Analytics</h3>
+            <button class="close-modal" id="closeModalBtn">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBodyContent">
+            <!-- dynamic content will be injected via JS -->
+            <div style="text-align: center;">Loading statistics...</div>
+        </div>
+        <div class="modal-footer-note">
+            ⚡ Based on 21 observations × 8 dimensions | Real-time dataset summary
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ----- Data extraction from the table (ensures we work with live table values)
+        function getTableData() {
+            const rows = document.querySelectorAll('.data-table tbody tr');
+            const data = [];
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].querySelectorAll('.numeric-cell');
+                const rowVals = [];
+                cells.forEach(cell => {
+                    rowVals.push(parseFloat(cell.innerText));
+                });
+                if(rowVals.length === 8) data.push(rowVals);
+            }
+            return data;
+        }
+        
+        // Compute detailed statistics
+        function computeStatistics(data) {
+            if (!data.length) return null;
+            const numRows = data.length;
+            const numCols = data[0].length;
+            const dimNames = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8'];
+            
+            // Flatten all values
+            const allValues = data.flat();
+            const globalMin = Math.min(...allValues);
+            const globalMax = Math.max(...allValues);
+            const globalSum = allValues.reduce((a,b) => a+b, 0);
+            const globalMean = (globalSum / allValues.length).toFixed(2);
+            
+            // per column stats
+            const colStats = [];
+            for (let c = 0; c < numCols; c++) {
+                const colVals = data.map(row => row[c]);
+                const min = Math.min(...colVals);
+                const max = Math.max(...colVals);
+                const sum = colVals.reduce((a,b) => a+b, 0);
+                const mean = (sum / colVals.length).toFixed(2);
+                const sorted = [...colVals].sort((a,b) => a-b);
+                const median = sorted[Math.floor(sorted.length/2)].toFixed(2);
+                colStats.push({ dim: dimNames[c], min, max, mean, median, sum });
+            }
+            
+            // find positions of global extremes
+            let maxPositions = [];
+            let minPositions = [];
+            for (let r = 0; r < numRows; r++) {
+                for (let c = 0; c < numCols; c++) {
+                    if (data[r][c] === globalMax) maxPositions.push(`(r${r+1},${dimNames[c]})`);
+                    if (data[r][c] === globalMin) minPositions.push(`(r${r+1},${dimNames[c]})`);
+                }
+            }
+            
+            return {
+                globalMin, globalMax, globalMean,
+                totalCells: allValues.length,
+                numRows, numCols,
+                colStats,
+                maxPositions: maxPositions.slice(0, 6).join(', '),
+                minPositions: minPositions.slice(0, 6).join(', ')
+            };
+        }
+        
+        // Render modal content with rich HTML
+        function renderSummaryModal(stats) {
+            if (!stats) return "<p>Error: Could not retrieve data.</p>";
+            let perColumnHtml = `<table class="per-column-table">
+                <thead><tr><th>Dimension</th><th>Min</th><th>Max</th><th>Mean</th><th>Median</th></tr></thead><tbody>`;
+            stats.colStats.forEach(col => {
+                perColumnHtml += `<tr>
+                    <td><strong>${col.dim}</strong></td>
+                    <td>${col.min}</td>
+                    <td>${col.max}</td>
+                    <td>${col.mean}</td>
+                    <td>${col.median}</td>
+                </tr>`;
+            });
+            perColumnHtml += `</tbody></table>`;
+            
+            return `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">📌 Total Observations</div>
+                        <div class="stat-value">${stats.numRows} rows × ${stats.numCols} cols</div>
+                        <div class="stat-detail">${stats.totalCells} numeric cells</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">🔻 Global Minimum</div>
+                        <div class="stat-value">${stats.globalMin}</div>
+                        <div class="stat-detail">📍 at ${stats.minPositions || 'multiple'}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">🔺 Global Maximum</div>
+                        <div class="stat-value">${stats.globalMax}</div>
+                        <div class="stat-detail">📍 at ${stats.maxPositions || 'multiple'}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">📊 Global Mean</div>
+                        <div class="stat-value">${stats.globalMean}</div>
+                        <div class="stat-detail">overall average</div>
+                    </div>
+                </div>
+                <h4 style="margin: 1rem 0 0.6rem 0; font-size:0.9rem; color:#1f4a6e;">📈 Per-Dimension Summary (min, max, mean, median)</h4>
+                ${perColumnHtml}
+                <div style="margin-top: 1rem; background:#eef3fc; padding: 0.6rem; border-radius: 1rem; font-size:0.7rem;">
+                    💡 <strong>Insight</strong>: d5 and d6 show highest peaks (max 23). d7 and d1 have moderate variability. d2 and d3 present wide spread.
+                </div>
+            `;
+        }
+        
+        // Refresh and show modal
+        function showDataSummary() {
+            const data = getTableData();
+            if (!data.length || data.length !== 21) {
+                console.warn("Data extraction mismatch");
+                const modalBody = document.getElementById('modalBodyContent');
+                if(modalBody) modalBody.innerHTML = `<p style="color:crimson;">⚠️ Unable to extract table data. Please check the structure.</p>`;
+            } else {
+                const stats = computeStatistics(data);
+                const modalBody = document.getElementById('modalBodyContent');
+                if(modalBody && stats) {
+                    modalBody.innerHTML = renderSummaryModal(stats);
+                } else {
+                    modalBody.innerHTML = `<p>Error computing statistics</p>`;
+                }
+            }
+            const modal = document.getElementById('dataSummaryModal');
+            if(modal) modal.classList.add('active');
+        }
+        
+        function closeModal() {
+            const modal = document.getElementById('dataSummaryModal');
+            if(modal) modal.classList.remove('active');
+        }
+        
+        // attach event listeners
+        const showBtn = document.getElementById('showDataBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const modalOverlay = document.getElementById('dataSummaryModal');
+        
+        if (showBtn) showBtn.addEventListener('click', showDataSummary);
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        if (modalOverlay) {
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) closeModal();
+            });
+        }
+        // optional: escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('active')) {
+                closeModal();
+            }
+        });
+        
+        // initial console verification
+        const rowsCheck = document.querySelectorAll('.data-table tbody tr');
+        console.log(`✅ Data table rendered: ${rowsCheck.length} rows. Show Data Summary button ready.`);
+        
+        // Extra: add subtle tooltips to cells (max/min)
+        const cells = document.querySelectorAll('.data-table td.numeric-cell');
+        cells.forEach(cell => {
+            let val = parseInt(cell.innerText);
+            if(val === 23) cell.setAttribute('title', '📈 Global Maximum (23)');
+            else if(val === 6) cell.setAttribute('title', '📉 Global Minimum (6)');
+            else if(val >= 20) cell.setAttribute('title', 'High range value ⚡');
+        });
+    })();
+</script>
+</body>
+</html>

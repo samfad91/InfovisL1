@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Bar Chart: Dimension-Specific Colors + Heat Matrix</title>
+    <!-- Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <!-- Plotly for heatmap -->
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js" charset="utf-8"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(145deg, #eef2f9 0%, #dce3ed 100%);
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, 'Roboto', sans-serif;
+            padding: 2rem 1.5rem;
+        }
+
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header-section {
+            margin-bottom: 2rem;
+            text-align: center;
+            position: relative;
+        }
+        .header-section h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1f3a4b, #2c6280);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.3px;
+        }
+        .header-section p {
+            color: #3d5e7a;
+            margin-top: 0.3rem;
+            font-weight: 500;
+        }
+
+        /* Button container styling */
+        .nav-button-container {
+            position: absolute;
+            top: 0;
+            right: 0;
+        }
+        .btn-data-nav {
+            background: linear-gradient(135deg, #2c6280, #1f4a6e);
+            border: none;
+            padding: 0.6rem 1.4rem;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            font-family: inherit;
+            text-decoration: none;
+        }
+        .btn-data-nav:hover {
+            background: linear-gradient(135deg, #1f5a7a, #143e58);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+        }
+        .btn-data-nav:active {
+            transform: translateY(1px);
+        }
+
+        .viz-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            justify-content: center;
+        }
+        .card {
+            background: rgba(255,255,255,0.94);
+            backdrop-filter: blur(0px);
+            border-radius: 2rem;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.25);
+            overflow: hidden;
+            transition: all 0.2s;
+            border: 1px solid rgba(255,255,255,0.7);
+            flex: 1;
+            min-width: 480px;
+        }
+        .card-header {
+            padding: 1rem 1.5rem 0 1.5rem;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #1f4a6e;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: space-between;
+            border-bottom: 1px solid #e2eaf1;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .card-header span {
+            background: #eef3fc;
+            padding: 0.2rem 0.7rem;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: normal;
+        }
+        .plot-container {
+            padding: 0.8rem 1rem 1rem 1rem;
+            width: 100%;
+        }
+        #threejs-canvas {
+            width: 100%;
+            height: 500px;
+            border-radius: 1.2rem;
+            background: #f8fafd;
+            display: block;
+        }
+        .insight-note {
+            background: #f0f6fe;
+            margin: 0.8rem 1.2rem 1.2rem 1.2rem;
+            padding: 0.6rem 1rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            color: #2c5a7a;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .color-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            align-items: center;
+        }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        @media (max-width: 1000px) {
+            .card {
+                min-width: 100%;
+            }
+            #threejs-canvas {
+                height: 420px;
+            }
+            .nav-button-container {
+                position: static;
+                margin-top: 1rem;
+                text-align: center;
+            }
+            .header-section {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
+            }
+        }
+        footer {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.7rem;
+            color: #4f6f8f;
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-container">
+    <div class="header-section">
+        <h1>📊 3D Bar Chart: Dimension-Specific Colors + Heat Matrix</h1>
+        <p>21 observations × 8 dimensions (d1–d8) | Each dimension column = unique bar color | Interactive WebGL cylinders</p>
+        <!-- BUTTON to navigate to data.html (view raw data table) -->
+        <div class="nav-button-container">
+            <button class="btn-data-nav" id="goToDataBtn">
+                📋 View Data Table
+                <span style="font-size:1rem;">→</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="viz-grid">
+        <!-- 3D BAR CHART: one bar per dimension per row? Actually we want each dimension with specific color -->
+        <!-- Better representation: Grouped bars by row? Or show each dimension as separate bar group? -->
+        <!-- Interpretation: "each dimension with a specific color" -> For clarity, we create a 3D bar chart where X axis = Row Index, 
+             Z axis = Dimensions (d1 to d8), and bar height = value. Each dimension (d1..d8) gets a distinct color. 
+             This way all 168 bars (21 rows × 8 dims) appear, each colored by its dimension. -->
+        <div class="card">
+            <div class="card-header">
+                <span>🧊 3D Cylinder Bars · Grouped by Dimension</span>
+                <div class="color-legend" id="dynamic-legend"></div>
+                <span>drag to rotate · scroll zoom</span>
+            </div>
+            <div class="plot-container">
+                <canvas id="threejs-canvas"></canvas>
+            </div>
+            <div class="insight-note">
+                <span>📌 <strong>X axis</strong> = Row index (1–21) &nbsp;|&nbsp; <strong>Z axis</strong> = Dimensions d1→d8 &nbsp;|&nbsp; <strong>Bar height</strong> = numeric value</span>
+                <span>🎨 <strong>Each dimension (d1..d8)</strong> has a unique fixed color — see legend</span>
+                <span>🖱️ <strong>True 3D cylinders</strong> — fully interactive, bars represent all 168 data points</span>
+            </div>
+        </div>
+
+        <!-- HEAT MATRIX CARD -->
+        <div class="card">
+            <div class="card-header">
+                🔥 Heat Matrix (Full Dataset: 21 rows × 8 columns)
+                <span>color = value magnitude</span>
+            </div>
+            <div class="plot-container" id="heatmap-plot" style="height: 500px;"></div>
+            <div class="insight-note">
+                <span>🎨 <strong>Warmer colors</strong> = higher values (max 23, min 6)</span>
+                <span>📐 X-axis: d1→d8 dimensions | Y-axis: observation rows 1→21</span>
+            </div>
+        </div>
+    </div>
+    <footer>
+        ⚡ 3D Bars: 21 rows × 8 dimensions = 168 cylinders. Each dimension has a distinctive color (d1=red, d2=orange, d3=yellow, d4=green, d5=teal, d6=blue, d7=purple, d8=magenta). Bar height = cell value. Heatmap shows all raw values.
+        <br>🔘 Click "View Data Table" to explore the numeric data in a structured table format.
+    </footer>
+</div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+    // --------------------------------------------------------------
+    // Full dataset: 21 rows x 8 dimensions (d1 to d8)
+    // --------------------------------------------------------------
+    const rawData = [
+        [12, 6, 14, 12, 6, 9, 12, 8],   // row1
+        [12, 7, 15, 12, 7, 12, 6, 14],  // row2
+        [10, 12, 8, 10, 7, 12, 7, 15],  // row3
+        [13, 12, 15, 22, 23, 10, 12, 8], // row4
+        [14, 7, 21, 22, 21, 22, 12, 15], // row5
+        [12, 20, 20, 22, 20, 22, 14, 7], // row6
+        [9, 12, 21, 7, 20, 21, 10, 12],  // row7
+        [12, 6, 14, 12, 22, 22, 13, 12], // row8
+        [12, 7, 15, 12, 21, 23, 12, 14], // row9
+        [10, 12, 8, 20, 22, 12, 12, 8],  // row10
+        [13, 12, 15, 21, 21, 12, 9, 9],  // row11
+        [14, 14, 7, 20, 20, 7, 15, 12],  // row12
+        [15, 8, 12, 15, 8, 12, 8, 12],   // row13
+        [9, 9, 12, 21, 21, 12, 8, 12],   // row14
+        [14, 12, 7, 22, 22, 12, 12, 12], // row15
+        [15, 8, 12, 21, 21, 8, 12, 14],  // row16
+        [7, 14, 12, 15, 7, 7, 13, 12],   // row17
+        [12, 13, 8, 15, 12, 12, 12, 14], // row18
+        [12, 7, 9, 9, 12, 12, 9, 8],     // row19
+        [10, 12, 6, 12, 6, 7, 15, 9],    // row20
+        [7, 13, 7, 12, 7, 12, 8, 12]     // row21
+    ];
+
+    const dimensions = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8'];
+    const rowCount = rawData.length;      // 21
+    const dimCount = dimensions.length;   // 8
+    
+    // Dimension-specific fixed colors (vibrant, distinct)
+    const dimColors = [
+        0xff3333,  // d1: red
+        0xff8844,  // d2: orange
+        0xffdd44,  // d3: yellow
+        0x44cc44,  // d4: green
+        0x22bbaa,  // d5: teal
+        0x4488ff,  // d6: blue
+        0xaa66ff,  // d7: purple
+        0xff66cc   // d8: magenta
+    ];
+    
+    // Color names for legend
+    const colorNames = ['Red', 'Orange', 'Yellow', 'Green', 'Teal', 'Blue', 'Purple', 'Magenta'];
+    
+    // Setup Three.js scene
+    const canvas = document.getElementById('threejs-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.setClearColor(0xf8fafd, 1.0);
+    renderer.shadowMap.enabled = true; // shadows add depth
+    
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf8fafd);
+    scene.fog = new THREE.FogExp2(0xf8fafd, 0.008);
+    
+    // Camera: positioned to see whole grid
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    camera.position.set(18, 16, 22);
+    camera.lookAt(10, 6, 3.5);
+    
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.rotateSpeed = 1.2;
+    controls.zoomSpeed = 1.2;
+    controls.enableZoom = true;
+    controls.target.set(10, 5, 3.5);
+    
+    // Lighting
+    // Ambient light
+    const ambientLight = new THREE.AmbientLight(0x404060);
+    scene.add(ambientLight);
+    // Main directional light
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(5, 12, 8);
+    dirLight.castShadow = true;
+    dirLight.receiveShadow = false;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    scene.add(dirLight);
+    // Fill light from below and back
+    const fillLight = new THREE.PointLight(0xccddff, 0.4);
+    fillLight.position.set(5, 3, 5);
+    scene.add(fillLight);
+    const backLight = new THREE.PointLight(0xffccaa, 0.3);
+    backLight.position.set(-2, 5, -4);
+    scene.add(backLight);
+    // Rim light
+    const rimLight = new THREE.PointLight(0xffaa88, 0.5);
+    rimLight.position.set(12, 8, -6);
+    scene.add(rimLight);
+    
+    // Helper: Grid and ground plane (semi-transparent)
+    const gridHelper = new THREE.GridHelper(28, 28, 0xaaaaaa, 0xcccccc);
+    gridHelper.position.y = -0.2;
+    gridHelper.material.transparent = true;
+    gridHelper.material.opacity = 0.4;
+    scene.add(gridHelper);
+    
+    // Optional: transparent ground plane to receive shadow? not needed for cylinders but adds reference
+    const planeMat = new THREE.MeshStandardMaterial({ color: 0xeef2f8, roughness: 0.6, metalness: 0.1, transparent: true, opacity: 0.2 });
+    const groundPlane = new THREE.Mesh(new THREE.PlaneGeometry(26, 12), planeMat);
+    groundPlane.rotation.x = -Math.PI / 2;
+    groundPlane.position.y = -0.15;
+    groundPlane.receiveShadow = false;
+    scene.add(groundPlane);
+    
+    // Store bars for optional animation (not needed)
+    const barsGroup = [];
+    
+    // Define bar geometry: CylinderGeometry(radiusTop, radiusBottom, height, radialSegments)
+    // radius = 0.28 for good spacing, height will vary per value
+    const cylinderGeo = new THREE.CylinderGeometry(0.32, 0.32, 1, 24);
+    
+    // Spacing: X axis: row index from 0 to 20 => positions 0.5, 1.5, ... 20.5 (makes 0.5 gap)
+    // Z axis: dimension index 0..7 => positions 0, 1, 2, ..., 7 (centered)
+    const xStart = 0.8;
+    const xStep = 0.95;   // tight enough but readable
+    const zStart = 0.0;
+    const zStep = 1.05;
+    
+    // Find global max value for scaling reference (max = 23)
+    let maxValue = 23;
+    let minValue = 6;
+    // scale factor: max bar height = 4.5 units (looks good)
+    const maxBarHeight = 4.8;
+    
+    function getBarHeight(value) {
+        // linear mapping: minValue -> 0.3 (minimal height to see), maxValue -> maxBarHeight
+        if (value <= minValue) return 0.35;
+        const t = (value - minValue) / (maxValue - minValue);
+        return 0.35 + t * (maxBarHeight - 0.35);
+    }
+    
+    // Create bars: iterate rows and dimensions
+    for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
+        const xPos = xStart + rowIdx * xStep;
+        for (let dimIdx = 0; dimIdx < dimCount; dimIdx++) {
+            const value = rawData[rowIdx][dimIdx];
+            const height = getBarHeight(value);
+            const zPos = zStart + dimIdx * zStep;
+            
+            // Create material with dimension-specific color
+            const colorHex = dimColors[dimIdx];
+            const material = new THREE.MeshStandardMaterial({
+                color: colorHex,
+                roughness: 0.25,
+                metalness: 0.4,
+                emissive: 0x000000,
+                flatShading: false
+            });
+            
+            const cylinder = new THREE.Mesh(cylinderGeo, material);
+            cylinder.scale.set(1, height, 1);
+            cylinder.position.set(xPos, height / 2, zPos);
+            cylinder.castShadow = true;
+            cylinder.receiveShadow = false;
+            cylinder.userData = {
+                row: rowIdx + 1,
+                dim: dimensions[dimIdx],
+                value: value,
+                colorName: colorNames[dimIdx]
+            };
+            scene.add(cylinder);
+            barsGroup.push(cylinder);
+            
+            // Add a small shiny top cap for better look (optional tiny sphere)
+            const capMat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: 0x221100, roughness: 0.2 });
+            const cap = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), capMat);
+            cap.position.set(xPos, height, zPos);
+            cap.castShadow = true;
+            scene.add(cap);
+        }
+    }
+    
+    // Add CSS2D labels for X axis (row numbers) and Z axis (dimension names)
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0px';
+    labelRenderer.domElement.style.left = '0px';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    canvas.parentNode.style.position = 'relative';
+    canvas.parentNode.appendChild(labelRenderer.domElement);
+    
+    // Row labels (X axis)
+    for (let i = 0; i < rowCount; i++) {
+        const div = document.createElement('div');
+        div.textContent = `${i+1}`;
+        div.style.color = '#2c5a7a';
+        div.style.fontSize = '11px';
+        div.style.fontWeight = 'bold';
+        div.style.backgroundColor = 'rgba(255,255,240,0.7)';
+        div.style.padding = '2px 5px';
+        div.style.borderRadius = '12px';
+        div.style.border = '1px solid #cbdae6';
+        div.style.fontFamily = 'monospace';
+        const label = new CSS2DObject(div);
+        label.position.set(xStart + i * xStep, -0.4, -0.9);
+        scene.add(label);
+    }
+    
+    // Dimension labels (Z axis)
+    for (let d = 0; d < dimCount; d++) {
+        const div = document.createElement('div');
+        div.textContent = `${dimensions[d]}`;
+        div.style.color = '#1f4a6e';
+        div.style.fontSize = '12px';
+        div.style.fontWeight = 'bold';
+        div.style.backgroundColor = '#ffffffcc';
+        div.style.padding = '2px 8px';
+        div.style.borderRadius = '20px';
+        div.style.border = `2px solid ${new THREE.Color(dimColors[d]).getStyle()}`;
+        div.style.backdropFilter = 'blur(4px)';
+        const label = new CSS2DObject(div);
+        label.position.set(-0.5, -0.3, zStart + d * zStep);
+        scene.add(label);
+    }
+    
+    // Add title label for Z axis (Dimensions group)
+    const axisDiv = document.createElement('div');
+    axisDiv.textContent = '📐 DIMENSIONS →';
+    axisDiv.style.fontSize = '10px';
+    axisDiv.style.fontWeight = 'bold';
+    axisDiv.style.color = '#2c6280';
+    axisDiv.style.backgroundColor = '#eef3fc';
+    axisDiv.style.padding = '2px 8px';
+    axisDiv.style.borderRadius = '14px';
+    const axisLabel = new CSS2DObject(axisDiv);
+    axisLabel.position.set(-0.9, 0.5, -0.6);
+    scene.add(axisLabel);
+    
+    // Add header for rows
+    const rowHeader = document.createElement('div');
+    rowHeader.textContent = '← ROW INDEX';
+    rowHeader.style.fontSize = '10px';
+    rowHeader.style.fontWeight = 'bold';
+    rowHeader.style.color = '#2c6280';
+    rowHeader.style.backgroundColor = '#eef3fc';
+    rowHeader.style.padding = '2px 8px';
+    rowHeader.style.borderRadius = '14px';
+    const rowLabelHead = new CSS2DObject(rowHeader);
+    rowLabelHead.position.set(10, -0.9, -1.2);
+    scene.add(rowLabelHead);
+    
+    // Add a bounding box visual reference: thin lines
+    const boxHelperMat = new THREE.LineBasicMaterial({ color: 0x9aaebf });
+    // walls not needed, but add subtle axes lines
+    const axesHelper = new THREE.AxesHelper(7);
+    axesHelper.material.transparent = true;
+    axesHelper.material.opacity = 0.18;
+    scene.add(axesHelper);
+    
+    // Legend dynamically in HTML
+    const legendContainer = document.getElementById('dynamic-legend');
+    if (legendContainer) {
+        for (let i = 0; i < dimColors.length; i++) {
+            const colorHex = dimColors[i];
+            const colorStyle = `#${colorHex.toString(16).padStart(6,'0')}`;
+            const item = document.createElement('div');
+            item.className = 'legend-item';
+            item.innerHTML = `<div class="legend-color" style="background: ${colorStyle};"></div><span>${dimensions[i]}</span>`;
+            legendContainer.appendChild(item);
+        }
+    }
+    
+    // Animation loop
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update(); // update orbit
+        renderer.render(scene, camera);
+        if (labelRenderer) labelRenderer.render(scene, camera);
+    }
+    animate();
+    
+    // Handle resize
+    window.addEventListener('resize', onWindowResize, false);
+    function onWindowResize() {
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        renderer.setSize(width, height);
+        labelRenderer.setSize(width, height);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+    }
+    setTimeout(() => onWindowResize(), 100);
+    
+    // Small interactive: highlight bar on hover (optional feature)
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let currentHighlight = null;
+    
+    canvas.addEventListener('mousemove', (event) => {
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(barsGroup);
+        if (currentHighlight) {
+            currentHighlight.material.emissiveIntensity = 0;
+            currentHighlight = null;
+        }
+        if (intersects.length > 0) {
+            const hit = intersects[0].object;
+            currentHighlight = hit;
+            hit.material.emissiveIntensity = 0.35;
+            hit.material.emissive.setHex(0x443300);
+            // tooltip effect via CSS? we can update title but not needed
+        }
+    });
+    
+    // Fallback initial render
+    console.log('3D Scene with dimension-specific colors loaded, 168 bars');
+</script>
+
+<script type="text/javascript">
+    // Heatmap using Plotly
+    const rawDataFlat = [
+        [12, 6, 14, 12, 6, 9, 12, 8],
+        [12, 7, 15, 12, 7, 12, 6, 14],
+        [10, 12, 8, 10, 7, 12, 7, 15],
+        [13, 12, 15, 22, 23, 10, 12, 8],
+        [14, 7, 21, 22, 21, 22, 12, 15],
+        [12, 20, 20, 22, 20, 22, 14, 7],
+        [9, 12, 21, 7, 20, 21, 10, 12],
+        [12, 6, 14, 12, 22, 22, 13, 12],
+        [12, 7, 15, 12, 21, 23, 12, 14],
+        [10, 12, 8, 20, 22, 12, 12, 8],
+        [13, 12, 15, 21, 21, 12, 9, 9],
+        [14, 14, 7, 20, 20, 7, 15, 12],
+        [15, 8, 12, 15, 8, 12, 8, 12],
+        [9, 9, 12, 21, 21, 12, 8, 12],
+        [14, 12, 7, 22, 22, 12, 12, 12],
+        [15, 8, 12, 21, 21, 8, 12, 14],
+        [7, 14, 12, 15, 7, 7, 13, 12],
+        [12, 13, 8, 15, 12, 12, 12, 14],
+        [12, 7, 9, 9, 12, 12, 9, 8],
+        [10, 12, 6, 12, 6, 7, 15, 9],
+        [7, 13, 7, 12, 7, 12, 8, 12]
+    ];
+    const dimensionsLabels = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8'];
+    const rowLabelsHeat = Array.from({ length: 21 }, (_, i) => `Row ${i+1}`);
+    const allVals = rawDataFlat.flat();
+    const minVal = Math.min(...allVals);
+    const maxVal = Math.max(...allVals);
+    
+    const heatTrace = {
+        type: 'heatmap',
+        z: rawDataFlat,
+        x: dimensionsLabels,
+        y: rowLabelsHeat,
+        colorscale: [
+            [0, '#313695'],
+            [0.2, '#4575b4'],
+            [0.4, '#74add1'],
+            [0.5, '#fee090'],
+            [0.7, '#f46d43'],
+            [1, '#d73027']
+        ],
+        zmin: minVal,
+        zmax: maxVal,
+        colorbar: { title: 'Value →', thickness: 18, len: 0.8 },
+        hovertemplate: 'Dim: %{x}<br>Row: %{y}<br>Value: %{z}<extra></extra>'
+    };
+    
+    const heatLayout = {
+        title: { text: "🔥 Heat Matrix: 21 Observations × 8 Dimensions", font: { size: 14, color: '#1f4a6e' } },
+        xaxis: { title: 'Dimensions', tickangle: -20 },
+        yaxis: { title: 'Observation Rows', autorange: 'reversed' },
+        margin: { t: 60, l: 100, r: 40, b: 50 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: '#ffffff'
+    };
+    
+    Plotly.newPlot('heatmap-plot', [heatTrace], heatLayout, { responsive: true, displayModeBar: true });
+    
+    // ---------- BUTTON NAVIGATION: go to data.html (enhanced table view) ----------
+    const goToDataBtn = document.getElementById('goToDataBtn');
+    if (goToDataBtn) {
+        goToDataBtn.addEventListener('click', () => {
+            // Navigate to data.html – assuming the data table visualizer is saved as "data.html" in same directory.
+            // If you need to open in same tab:
+            window.location.href = 'data.html';
+        });
+    }
+</script>
+</body>
+</html>
